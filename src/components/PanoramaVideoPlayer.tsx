@@ -1,88 +1,143 @@
-// src/components/PanoramaVideoPlayer.tsx (Solusi Paling Stabil untuk Video)
-
-import React, { useEffect, useRef } from 'react';
-import * as PANOLENS from 'panolens'; // Sekarang diimpor tanpa error TypeScript!
+// src/components/PanoramaVideoPlayer.tsx
+import React, { useEffect, useRef, useState } from "react";
 
 interface PanoramaVideoPlayerProps {
-    videoPath: string;
-    heightClass?: string;
+  videoPath: string;
 }
 
-const PanoramaVideoPlayer: React.FC<PanoramaVideoPlayerProps> = ({ videoPath, heightClass = "h-[24rem]" }) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const viewerRef = useRef<PANOLENS.Viewer | null>(null);
-    const panoramaRef = useRef<PANOLENS.VideoPanorama | null>(null);
-    const videoElementRef = useRef<HTMLVideoElement | null>(null);
+const PanoramaVideoPlayer: React.FC<PanoramaVideoPlayerProps> = ({ videoPath }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<any>(null);
+  const panoramaRef = useRef<any>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-    useEffect(() => {
-        if (!containerRef.current || viewerRef.current) return;
+  const [uiState, setUiState] = useState({
+    started: false,
+    ready: false,
+    muted: true,
+  });
 
-        const viewer = new PANOLENS.Viewer({
-            container: containerRef.current,
-            autoRotate: true,
-            controlBar: true, // Biarkan Panolens menampilkan control bar
-        });
-        viewerRef.current = viewer;
+  // 🧹 Cleanup saat keluar halaman
+  useEffect(() => {
+    return () => {
+      console.log("🧹 Cleaning up Panolens...");
+      try {
+        const pano = panoramaRef.current;
+        const viewer = viewerRef.current;
+        const video = videoRef.current;
 
-        const panorama = new PANOLENS.VideoPanorama(videoPath, {
-            autoplay: true, // Panolens akan coba autoplay
-            muted: true,    // Harus muted agar autoplay diizinkan
-            loop: true,
-            crossOrigin: 'anonymous',
-        });
-        panoramaRef.current = panorama;
-        viewer.add(panorama);
-
-        // Simpan referensi ke elemen video HTML yang dibuat Panolens
-        const videoEl = panorama.videoElement;
-        if (videoEl) {
-            videoElementRef.current = videoEl;
-            // Diagnostic untuk melihat apakah Panolens berhasil memuat video
-            videoEl.addEventListener('error', () => {
-                console.error("DIAGNOSTIC: Video failed to load. Check path, codec, and 360 metadata!");
-                alert("Gagal memuat video 360. Periksa file dan metadata.");
-            });
+        if (video) {
+          video.pause();
+          video.src = "";
+          video.load();
         }
 
+        pano?.dispose?.();
+        viewer?.dispose?.();
 
-        // Bersihkan instance Panolens saat komponen dilepas
-        return () => {
-            if (viewerRef.current) {
-                viewerRef.current.dispose();
-                viewerRef.current = null;
-            }
-        };
-    }, [videoPath]);
-
-    // Tombol overlay untuk mengaktifkan suara (diperlukan karena video mulai muted)
-    const handleUnmute = () => {
-        if (videoElementRef.current) {
-            videoElementRef.current.muted = false;
-            // Coba play lagi (beberapa browser memerlukan ini setelah unmute)
-            videoElementRef.current.play();
-        }
+        panoramaRef.current = null;
+        viewerRef.current = null;
+        videoRef.current = null;
+      } catch (e) {
+        console.warn("⚠️ Error cleaning up:", e);
+      }
     };
+  }, []);
 
-    return (
-        <div className="virtual-tour-wrapper relative">
-            <div
-                ref={containerRef}
-                className={`w-full ${heightClass} rounded-xl overflow-hidden shadow-2xl relative`}
-            >
-                {/* Panolens akan menginjeksi canvas di sini */}
-            </div>
+  const handleStart = () => {
+    if (uiState.started) return; // ⛔ Cegah klik berulang
+    setUiState((s) => ({ ...s, started: true }));
 
-            {/* Tombol Unmute Sederhana (Contoh Interaksi User) */}
-            {videoElementRef.current && videoElementRef.current.muted && (
-                <button
-                    onClick={handleUnmute}
-                    className="absolute bottom-4 left-1/2 transform -translate-x-1/2 p-2 bg-white/70 text-black rounded z-20"
-                >
-                    Klik untuk Mengaktifkan Suara 🔊
-                </button>
-            )}
+    const PANOLENS = (window as any).PANOLENS;
+    if (!PANOLENS || !containerRef.current) {
+      console.error("❌ PANOLENS belum dimuat!");
+      return;
+    }
+
+    console.log("✅ PANOLENS loaded:", PANOLENS.VERSION);
+
+    const panorama = new PANOLENS.VideoPanorama(videoPath, {
+      autoplay: true,
+      loop: true,
+      muted: true,
+      crossOrigin: "anonymous",
+      playsinline: true,
+    });
+
+    const viewer = new PANOLENS.Viewer({
+      container: containerRef.current,
+      controlBar: true,
+      cameraFov: 75,
+      autoHideInfospot: false,
+      deviceOrientationControl: true,
+    });
+
+    viewer.add(panorama);
+
+    panorama.addEventListener("enter-fade-start", () => {
+      console.log("🎬 Video loaded!");
+      videoRef.current = panorama.videoElement;
+      setUiState((s) => ({ ...s, ready: true }));
+    });
+
+    panoramaRef.current = panorama;
+    viewerRef.current = viewer;
+  };
+
+  const toggleMute = () => {
+    const video = videoRef.current;
+    if (video) {
+      video.muted = !video.muted;
+      setUiState((s) => ({ ...s, muted: video.muted }));
+    }
+  };
+
+  return (
+    <div
+      className="relative w-full rounded-xl overflow-hidden shadow-2xl bg-black"
+      style={{ height: "70vh" }}
+    >
+      {/* Tempat viewer */}
+      <div ref={containerRef} className="w-full h-full" />
+
+      {/* Overlay Start Tour */}
+      {!uiState.started && (
+        <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-40">
+          <p className="text-white text-lg sm:text-xl text-center mb-6">
+            Klik untuk memulai pengalaman Virtual Tour.
+          </p>
+          <button
+            onClick={handleStart}
+            className="bg-red-600 text-white text-lg sm:text-xl font-bold py-3 px-8 rounded-full shadow-lg hover:bg-red-700 transition transform hover:scale-105"
+          >
+            Start Tour
+          </button>
+          <p className="text-gray-400 text-sm mt-4 text-center">
+            Video akan diputar dalam mode Mute.
+          </p>
         </div>
-    );
+      )}
+
+      {/* Overlay Loading */}
+      {uiState.started && !uiState.ready && (
+        <div className="absolute inset-0 bg-gray-900 flex items-center justify-center z-30">
+          <p className="text-white text-lg sm:text-xl animate-pulse">
+            Memuat Virtual Tour...
+          </p>
+        </div>
+      )}
+
+      {/* Tombol suara */}
+      {uiState.ready && (
+        <button
+          onClick={toggleMute}
+          className="absolute bottom-6 right-6 bg-black bg-opacity-60 w-14 h-14 rounded-full flex items-center justify-center text-white text-2xl shadow-lg hover:bg-opacity-80 transition"
+        >
+          {uiState.muted ? "🔇" : "🔊"}
+        </button>
+      )}
+    </div>
+  );
 };
 
 export default PanoramaVideoPlayer;
