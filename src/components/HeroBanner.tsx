@@ -28,7 +28,13 @@ const HeroBanner: React.FC = () => {
         {/* Tombol Posisi: Padding bawah responsif */}
         <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center pb-6 md:pb-12 lg:pb-24">
           <button
-            onClick={() => navigate('/tour')}
+            onClick={() =>
+              navigate("/tour", {
+                state: {
+                  videoPath: "/jalan pahlawan 5Mbps.mp4", // video khusus untuk HeroBanner
+                },
+              })
+            }
             className={buttonStyle} // Menggunakan style yang diperkecil
           >
             START TOUR
