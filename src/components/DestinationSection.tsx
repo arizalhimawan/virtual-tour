@@ -75,7 +75,20 @@ const DestinationSection: React.FC = () => {
                         <p className="text-xs text-gray-500 mb-3">{dest.desc}</p>
 
                         <button
-                            onClick={() => navigate('/tour')}
+                            onClick={() =>
+                                navigate('/tour', {
+                                    state: {
+                                        videoPath:
+                                            index === 0
+                                                ? '/liberty 5Mbps.mp4'
+                                                : index === 1
+                                                    ? '/kakbah 5Mbps.mp4'
+                                                    : index === 2
+                                                        ? '/eiffel 5Mbps.mp4'
+                                                        : '/merlion 5Mbps.mp4',
+                                    },
+                                })
+                            }
                             // Tombol Dibuat Sangat Kecil di HP
                             className="w-fit px-3 py-1 bg-[#f0e6c9] text-xs font-semibold text-black rounded-lg shadow-md hover:bg-[#d8c29b] transition duration-300"
                         >
