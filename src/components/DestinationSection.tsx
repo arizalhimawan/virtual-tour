@@ -86,6 +86,8 @@ const DestinationSection: React.FC = () => {
                                                     : index === 2
                                                         ? '/eiffel 5Mbps.mp4'
                                                         : '/merlion 5Mbps.mp4',
+                                        title: dest.name, // ✅ kirim nama destinasi
+                                        description: dest.desc, // ✅ kirim deskripsi destinasi
                                     },
                                 })
                             }
